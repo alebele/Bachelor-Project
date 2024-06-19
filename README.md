@@ -1,6 +1,8 @@
 # Bachelor-Project
 title: Development of User Interface to Digital Control Programmable Power Supplies
 
+author: Bele Anamaria-Alexandra
+
 description of the project:
 
 This project was thought within the SC HUF ROMANIA SRL company with the main objective of optimizing and
