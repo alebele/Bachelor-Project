@@ -1,0 +1,1144 @@
+/*@!Encoding:1252*/
+variables
+{
+	dword	  retVal_dword; //variable that returns 1 for success and 0 for error in case of RS232 functions
+	dword	  indexOfReceivedBuffByteArray; //variable for indexing the received buffer byte array
+	
+	byte	  sendBuffer_bytes[100]; //variable in which we store the bytes we want to send 
+	byte	  receivedBuffer_bytes[100]; //variable in which we store the bytes we receive
+
+	char	  responseStringFromPS[300]; //variable in which we store the whole response from the PS (Uout; Iout)
+  char    loggingLocation[500]; //string that holds the file path
+  
+  long    fileLogging; //variable that holds the file
+  
+  int		  noOfBytesToBeSent; 
+	int		  flgQueryUoutIoutStatus, flgQueryUoutStatus, flgQueryIoutStatus; //flags for querying the status
+  int     flgLoggingInProgress = 0; //0 indicates logging is not in progress, 1 indicated logging is in progress
+  int     i = 0; //counter for time limit
+  int     measurements = 0; //counter for the measurements in the file
+  int     flag_increment; //flag for verifying if the action should be an incrementation or decrementation, having as values 1 and 0, respectively
+  
+  //time in seconds
+  float   timerReferenceA = 0; //variable that stores the first read of time
+  float   timerReferenceB = 0; //variable that stores the second read of time
+  float   referencetime; // seconds
+    
+  //timers
+  msTimer TimerForPS;
+  msTimer Timer2ForPS;
+  
+  timer   TimerLogging; //timer for managing the logging without a time limit
+  timer   Timer2ForPS_logging; //2nd timer for managing the logging without a time limit(valid only for AimTTi)
+  timer   TimerLoggingWithLimit; //timer for managing the logging with a time limit
+  timer   Timer2ForPS_loggingWithLimit; //2nd timer for managing the logging with a time limit(valid only for AimTTi)
+  timer   TimerLimit; //timer for managing the limit
+  timer   TimerCyclicity; //timer for reading the values again at a time sampling
+  timer   TimerStartAction; //timer that does what should wait function do
+  timer   TimerTargetValue; //timer for reading and sending the next input value
+  timer   TimerStopInput; //timer for turning off the switch_input
+  timer   TimerBackToInitial; //timer for sending again the initial voltage input value
+  timer   TimerIncrementValue; //timer for incrementing the initial voltage value with a specified unit every a certain time 
+  timer   TimerWaitBeforeDisplay; //timer for displaying some messages to the user
+}
+
+on preStart 
+{
+  if(@powerSupply_2023::power_supply == 0 || @powerSupply_2023::power_supply == 1) //KONSTANTER or AimTTi
+  { 
+  	retVal_dword = RS232Open(@powerSupply_2023::com_port); //function that opens a serial port before the simulation starts
+  	write("RS232Open(%d) returned: %d", @powerSupply_2023::com_port, retVal_dword); 
+  }
+}
+
+on stopMeasurement 
+{
+  if(@powerSupply_2023::power_supply == 0 || @powerSupply_2023::power_supply == 1) //KONSTANTER or AimTTi
+  {
+  	retVal_dword = RS232Close(@powerSupply_2023::com_port); //function that closes a serial port when we stop the simulation
+  	write("RS232Close(%d) returned: %d", @powerSupply_2023::com_port, retVal_dword);
+  }
+}
+
+on start
+{
+  if(@powerSupply_2023::power_supply == 0 || @powerSupply_2023::power_supply == 1) //KONSTANTER or AimTTi
+  {
+  	retVal_dword = RS232Receive(@powerSupply_2023::com_port, receivedBuffer_bytes, elcount(receivedBuffer_bytes)); //function that tells us that the receiving of blocks of bytes from a serial port can happen or not 
+  	write("RS232Receive(%d, ...) returned: %d", @powerSupply_2023::com_port, retVal_dword);
+  
+  	retVal_dword = RS232Configure(@powerSupply_2023::com_port,  19200, 8, 1, 0 ); //function that configures a serial port
+  	write("RS232Configure(%d, ...) returned: %d", @powerSupply_2023::com_port, retVal_dword);
+    
+    if(@powerSupply_2023::power_supply == 0) //in case of KONSTANTER
+    {
+      //set default values to PS: output ON, 0V, 0A
+    	fStrToByteArray("OUTP OFF;USET 0;ISET 0", sendBuffer_bytes);
+    	RS232Send(@powerSupply_2023::com_port, sendBuffer_bytes, noOfBytesToBeSent); //function that sends a block of bytes to a serial port
+    }
+    else if(@powerSupply_2023::power_supply == 1) //in case of AimTTi
+    {
+      //set default values to PS: output ON, 0V, the current will always have the last limit value we have set
+    	fStrToByteArray("OFF", sendBuffer_bytes);
+    	RS232Send(@powerSupply_2023::com_port, sendBuffer_bytes, noOfBytesToBeSent); //these syntaxes must be sent one at a time in case of AimTTi
+      fStrToByteArray("V 0", sendBuffer_bytes);
+    	RS232Send(@powerSupply_2023::com_port, sendBuffer_bytes, noOfBytesToBeSent);
+    }
+  }
+}
+
+fStrToByteArray(char inputString[], byte byteArray[]) /*function that converts a string into a byte array so that it can be transmitted to PS, 
+                                                         cause the PS can receive data just in a byte format*/
+{
+	int iCnt, inputStrLen; //counter and length
+
+	inputStrLen = strlen(inputString); //obtainig the length 
+	noOfBytesToBeSent = inputStrLen + 2; /*noOfBytesToBeSent is calculating by adding the length of the input string(for which is usually allocated 1 more 'space') 
+                                         and the carriage return character, so it's making it + 2 in the end*/
+	for(iCnt = 0; iCnt < inputStrLen; iCnt++) //go through each element
+	{
+		byteArray[iCnt] = inputString[iCnt]; //'convert' every element from string format to byte format
+	}
+	byteArray[iCnt+1] = 0xD;	//carriage return character 
+}
+
+RS232OnSend(dword comPortNo, byte sendBuff[], dword noOfSentBytes) //function that sends a block of bytes to a serial port
+{
+	indexOfReceivedBuffByteArray = 0; //first, set the index of received buffer byte array to 0 so we always start from position 0
+	fClearSendBuffer(); //call the function fClearSendBuffer()
+}
+
+fClearSendBuffer() /*function that clears the buffer in which we store the bytes we want to send. 
+                     Once we sent a block of bytes to the PS, we always have to clear the buffer so we can send the next block of bytes correctly*/
+{
+	int i; //counter
+	for(i=0; i<elcount(sendBuffer_bytes); i++)
+	{
+		sendBuffer_bytes[i] = 0; //set every element in the buffer to 0
+	}
+}
+
+RS232OnReceive(dword comPortNo, byte receivedBuffer_bytes[], dword noOfReceivedBytes) //function for reception of data at a serial port
+{
+	int		iCnt, flgReceiveReady; //counter and flag to indicate if data is ready
+  int		retValStr;
+  
+  char	strToBeDisplayed[300]; //buffer to hold the received string
+  char	subStr[10], subStr1[5], subStr2[5];
+  char  voltageToFile[15], currentToFile[15];
+  char  measurementToFile[1000]; //variable to hold the string representation of the integer variable "measurements"
+  char  timeToFile[100]; //variable to hold the string representation of the float variable "time"
+  
+	long	lDig, lDecPlaces; //variables for integer(lDig) and fractional(lDecPlaces) part of a number
+	float	fUval, fIval; //variables for the final values of U and I, after concatenation
+  
+  flgReceiveReady = 0; //initialize the flag to 0
+  
+  //loop to received bytes
+	for (iCnt = 0; iCnt < noOfReceivedBytes; iCnt++)
+	{
+		if(receivedBuffer_bytes[iCnt] == 0x0D)
+			flgReceiveReady = 1; //set flag to 1 when newline character (0x0D) is found
+		else
+			responseStringFromPS[indexOfReceivedBuffByteArray + iCnt] = receivedBuffer_bytes[iCnt]; //store received bytes in responseStringFromPS, one by one
+	}
+  //update the index for received buffer array
+	indexOfReceivedBuffByteArray = indexOfReceivedBuffByteArray + noOfReceivedBytes; 
+  //create a display string from the response buffer
+	snprintf(strToBeDisplayed, indexOfReceivedBuffByteArray, responseStringFromPS); 
+
+  //check if data is ready to be processed
+	if(flgReceiveReady == 1) //meaning when newline character (0x0D) is found
+	{
+		write("%s", strToBeDisplayed); /*print the received data: UOUT +012.318;IOUT +00.0000 (KONSTANTER); V 12.30   (AimTTi)
+                                                                                                       I 0.000         */
+		
+    if(@powerSupply_2023::power_supply == 0) //power supply: KONSTANTER
+    {
+      //check if querying Uout and Iout status
+  		if(flgQueryUoutIoutStatus == 1)
+  		{
+			  flgQueryUoutIoutStatus = 0; //set the flag back to 0
+      
+        //here is 'created' what will be DISPLAYED on voltage/current_output (in the panel) and also, into the logging file
+
+        //find "UOUT " in the received string
+  			retValStr = strstr(strToBeDisplayed, "UOUT ");
+        
+        if(flgLoggingInProgress == 1) //if logging is still in progress
+        {
+          //extract voltage value substring and write it into the file
+  			  substr_cpy(voltageToFile, strToBeDisplayed, retValStr + 6, 7, elcount(strToBeDisplayed)); //subStr: 012.318
+                                                                                                    //copies from strToBeDisplayed to voltageToFile, 
+                                                                                                    //starting from the position retValStr + 6 (0+6=6),
+                                                                                                    //7 characters
+          if(@logging::file_format == 0) //file format: excel 
+          {
+            measurements++; //increment the counter for measurements
+            write("Measurement no. %i", measurements); //1st appearance: measurement no. 1.
+            snprintf(measurementToFile, 1000, "%d.", measurements); //store the value of measurements into char buffer: measurementToFile, so that it can be stored further in the logging file
+            filePutString(measurementToFile, elcount(measurementToFile), fileLogging); //store the measurement into the file
+            filePutString("\t", elcount("\t"), fileLogging); 
+            timerReferenceB = TimeNow()/100000.0; //get the time right after storing another measurement into the logging file
+            referencetime = timerReferenceB - timerReferenceA; //calculate the difference of time in order too see how much time passed after start logging until stored that specific measurement
+            snprintf(timeToFile, 100, "%f ", referencetime); 
+            filePutString(timeToFile, elcount(timeToFile), fileLogging); //store the time into the file
+            filePutString("\t", elcount("\t"), fileLogging); 
+            filePutString(voltageToFile, elcount(voltageToFile), fileLogging); //store the voltage value into the file
+            filePutString("\t", elcount("\t"), fileLogging); 
+          }
+          else if(@logging::file_format == 1) //file format: text 
+          {
+            measurements++; //increment the counter for measurements
+            write("Measurement no. %i", measurements); //1st appearance: measurement no. 1.
+            snprintf(measurementToFile, 1000, "     %d.     ", measurements); //store the value of measurements into char buffer: measurementToFile, so that it can be stored further in the logging file
+            filePutString(measurementToFile, elcount(measurementToFile), fileLogging); //store the measurement into the file
+            if(measurements <= 9) { //this is just for a better display
+              filePutString(" |", elcount(" |"), fileLogging);
+            }
+            else {
+              filePutString("|", elcount("|"), fileLogging);
+            }
+            timerReferenceB = TimeNow()/100000.0; //get the time right after storing another measurement into the logging file
+            referencetime = timerReferenceB - timerReferenceA; //calculate the difference of time in order too see how much time passed after start logging until stored that specific measurement 
+            snprintf(timeToFile, 100, "   %f  ", referencetime); 
+            filePutString(timeToFile, elcount(timeToFile), fileLogging); //store the time into the file
+            if(referencetime < 10) { //this is just for a better display
+              filePutString("     |", elcount("     |"), fileLogging);
+            }
+            else {
+              filePutString("    |", elcount("    |"), fileLogging);
+            }
+            filePutString("   ", elcount("   "), fileLogging);
+            filePutString(voltageToFile, elcount(voltageToFile), fileLogging); //store the voltage value into the file
+            filePutString("    ", elcount("    "), fileLogging);
+            filePutString(" |", elcount(" |"), fileLogging);
+          }
+        }
+        
+        //extract voltage value substrings
+  			substr_cpy(subStr, strToBeDisplayed, retValStr + 6, 7, elcount(strToBeDisplayed)); //subStr: 012.318
+                                                                                           //copies from strToBeDisplayed to subStr, 
+                                                                                           //starting from the position retValStr + 6 (0+6=6),
+                                                                                           //7 characters
+                                                                                           //having the length elcount(strToBeDisplayed)
+  			retValStr = strstr(subStr, "."); //retValStr will memorize the dot's position (in ex is 3)
+  			substr_cpy(subStr1, subStr, 0, retValStr, elcount(subStr)); //subStr1: 012
+                                                                    //the integer part of the number (in string format)
+  			lDig = atol(subStr1); //converts the subStr1 into a long integer and assings it to lDig
+  			substr_cpy(subStr2, subStr, retValStr + 1, 3, elcount(subStr)); //subStr2: 318
+                                                                        //the fractional part of the number (in string format)
+  			lDecPlaces = atol(subStr2); //converts the subStr2 into a long integer and assings it to lDecPlaces
+        //calculate the floating-point value of the whole number (12.32)
+  			fUval = (float)lDig + (float)lDecPlaces/1000;
+        
+        //update voltage output value
+  			@powerSupply_2023::voltage_output = fUval;
+  
+        //find "IOUT " in the received string
+  			retValStr = strstr(strToBeDisplayed, "IOUT "); 
+        
+        if(flgLoggingInProgress == 1) //if logging is still in progress
+        {
+          //extract current value substring and write it into the file
+  			  substr_cpy(currentToFile, strToBeDisplayed, retValStr + 6, 7, elcount(strToBeDisplayed)); //subStr: 00.0000
+                                                                                                 //copies from strToBeDisplayed to currentToFile, 
+                                                                                                 //starting from the position retValStr + 6 (14+6=6),
+                                                                                                 //7 characters
+                                                                                                 //having the length elcount(strToBeDisplayed)
+          if(@logging::file_format == 0) //file format: excel 
+          {
+            filePutString(currentToFile, elcount(currentToFile), fileLogging); //store the current value into the file
+            filePutString("\n", elcount("\n"), fileLogging);
+          }
+          else if(@logging::file_format == 1) //file format: text
+          {
+            filePutString("   ", elcount("   "), fileLogging);
+            filePutString(currentToFile, elcount(currentToFile), fileLogging); //store the current value into the file
+            filePutString("    ", elcount("    "), fileLogging);
+            filePutString("\n", elcount("\n"), fileLogging);
+          }
+        }
+        
+        //extract current value substrings
+  			substr_cpy(subStr, strToBeDisplayed, retValStr + 6, 7, elcount(strToBeDisplayed)); //subStr: 00.0000
+                                                                                           //copies from strToBeDisplayed to subStr, 
+                                                                                           //starting from the position retValStr + 6 (14+6=6),
+                                                                                           //7 characters
+                                                                                           //having the length elcount(strToBeDisplayed)
+  			retValStr = strstr(subStr, "."); //retValStr will memorize the dot's position (in ex is 2)
+  			substr_cpy(subStr1, subStr, 0, retValStr, elcount(subStr)); //subStr1: 00
+                                                                    //the integer part of the number (in string format)
+  			lDig = atol(subStr1); //converts the subStr1 into a long integer and assings it to lDig
+  			substr_cpy(subStr2, subStr, retValStr + 1, 4, elcount(subStr)); //subStr2: 0000
+                                                                        //the fractional part of the number (in string format)
+  			lDecPlaces = atol(subStr2); //converts the subStr2 into a long integer and assings it to lDecPlaces
+        //calculate the floating-point value of the whole number (00.00)
+  			fIval = (float)lDig + (float)lDecPlaces/1000;
+        
+        //update current output value
+  			@powerSupply_2023::current_output = fIval;
+      }
+    }
+    else if(@powerSupply_2023::power_supply == 1) //power supply: AimTTi
+    {
+      //check if querying Uout status
+  		if(flgQueryUoutStatus == 1)
+  		{
+			  flgQueryUoutStatus = 0; //set the flag back to 0
+      
+        //here is 'created' what will be DISPLAYED on voltage_output (in the panel) and also, into the logging file
+        
+        //find "V" in the received string
+  			retValStr = strstr(strToBeDisplayed, "V ");
+        
+        if(flgLoggingInProgress == 1) //if logging is still in progress
+        {
+          //extract voltage value substring and write it into the file
+  			  substr_cpy(voltageToFile, strToBeDisplayed, retValStr + 2, 5, elcount(strToBeDisplayed)); //subStr: 12.30
+                                                                                                 //copies from strToBeDisplayed to voltageToFile, 
+                                                                                                 //starting from the position retValStr + 2 (0+2=2),
+                                                                                                 //5 characters
+                                                                                                 //having the length elcount(strToBeDisplayed)
+          if(@logging::file_format == 0) //file format: excel 
+          {
+            measurements++; //increment the counter for measurements
+            write("Measurement no. %i", measurements); //1st appearance: measurement no. 1.
+            snprintf(measurementToFile, 1000, "%d.", measurements); //store the value of measurements into char buffer: measurementToFile, so that it can be stored further in the logging file
+            filePutString(measurementToFile, elcount(measurementToFile), fileLogging); //store the measurement into the file
+            filePutString("\t", elcount("\t"), fileLogging); 
+            timerReferenceB = TimeNow()/100000.0; //get the time right after storing another measurement into the logging file
+            referencetime = timerReferenceB - timerReferenceA; //calculate the difference of time in order too see how much time passed after start logging until stored that specific measurement
+            snprintf(timeToFile, 100, "%f ", referencetime); 
+            filePutString(timeToFile, elcount(timeToFile), fileLogging); //store the time into the file
+            filePutString("\t", elcount("\t"), fileLogging); 
+            filePutString(voltageToFile, elcount(voltageToFile), fileLogging); //store the voltage value into the file
+            filePutString("\t", elcount("\t"), fileLogging); 
+          }
+          else if(@logging::file_format == 1) //file format: text 
+          {
+            measurements++; //increment the counter for measurements
+            write("Measurement no. %i", measurements); //1st appearance: measurement no. 1.
+            snprintf(measurementToFile, 1000, "     %d.     ", measurements); //store the value of measurements into char buffer: measurementToFile, so that it can be stored further in the logging file
+            filePutString(measurementToFile, elcount(measurementToFile), fileLogging); //store the measurement into the file
+            if(measurements <= 9) { //this is just for a better display
+              filePutString(" |", elcount(" |"), fileLogging);
+            }
+            else {
+              filePutString("|", elcount("|"), fileLogging);
+            }
+            timerReferenceB = TimeNow()/100000.0; //get the time right after storing another measurement into the logging file
+            referencetime = timerReferenceB - timerReferenceA; //calculate the difference of time in order too see how much time passed after start logging until stored that specific measurement 
+            snprintf(timeToFile, 100, "   %f  ", referencetime); 
+            filePutString(timeToFile, elcount(timeToFile), fileLogging); //store the time into the file
+            if(referencetime < 10) { //this is just for a better display
+              filePutString("     |", elcount("     |"), fileLogging);
+            }
+            else {
+              filePutString("    |", elcount("    |"), fileLogging);
+            }
+            filePutString("   ", elcount("   "), fileLogging);
+            filePutString(voltageToFile, elcount(voltageToFile), fileLogging); //store the voltage value into the file
+            filePutString("    ", elcount("    "), fileLogging);
+            filePutString(" |", elcount(" |"), fileLogging);
+          }
+        }
+        
+        //extract voltage value substrings
+  			substr_cpy(subStr, strToBeDisplayed, retValStr + 2, 5, elcount(strToBeDisplayed)); //subStr: 12.30
+                                                                                           //copies from strToBeDisplayed to subStr, 
+                                                                                           //starting from the position retValStr + 2 (0+2=2),
+                                                                                           //5 characters
+                                                                                           //having the length elcount(strToBeDisplayed)
+  			retValStr = strstr(subStr, "."); //retValStr will memorize the dot's position (in ex is 2)
+  			substr_cpy(subStr1, subStr, 0, retValStr, elcount(subStr)); //subStr1: 12
+                                                                    //the integer part of the number (in string format)
+  			lDig = atol(subStr1); //converts the subStr1 into a long integer and assings it to lDig
+  			substr_cpy(subStr2, subStr, retValStr + 1, 2, elcount(subStr)); //subStr2: 30
+                                                                        //the fractional part of the number (in string format)
+  			lDecPlaces = atol(subStr2); //converts the subStr2 into a long integer and assings it to lDecPlaces
+        //calculate the floating-point value of the whole number (12.30)
+  			fUval = (float)lDig + (float)lDecPlaces/100; 
+        
+        //update voltage output value
+  			@powerSupply_2023::voltage_output = fUval;
+      }
+      
+      //check if querying Iout status
+      if(flgQueryIoutStatus == 1)
+      {
+        flgQueryIoutStatus = 0; //set the flag back to 0
+      
+        //here is 'created' what will be DISPLAYED on voltage_output (in the panel) and also, into the logging file
+        
+        //find "I" in the received string
+  			retValStr = strstr(strToBeDisplayed, "I");
+        
+        if(flgLoggingInProgress == 1) //if logging is still in progress
+        {
+          //extract current value substring and write it into the file
+  			  substr_cpy(currentToFile, strToBeDisplayed, retValStr + 2, 5, elcount(strToBeDisplayed)); //subStr: 0.000
+                                                                                                 //copies from strToBeDisplayed to currentToFile, 
+                                                                                                 //starting from the position retValStr + 2 (0+2=2),
+                                                                                                 //5 characters
+                                                                                                 //having the length elcount(strToBeDisplayed)
+          if(@logging::file_format == 0) //file format: excel 
+          {
+            filePutString(currentToFile, elcount(currentToFile), fileLogging); //store the current value into the file
+            filePutString("\n", elcount("\n"), fileLogging);
+          }
+          else if(@logging::file_format == 1) //file format: text
+          {
+            filePutString("   ", elcount("   "), fileLogging);
+            filePutString(currentToFile, elcount(currentToFile), fileLogging); //store the current value into the file
+            filePutString("    ", elcount("    "), fileLogging);
+            filePutString("\n", elcount("\n"), fileLogging);
+          }
+        }
+        
+        //extract current value substrings
+  			substr_cpy(subStr, strToBeDisplayed, retValStr + 2, 4, elcount(strToBeDisplayed)); //subStr: 0.000
+                                                                                           //copies from strToBeDisplayed to subStr, 
+                                                                                           //starting from the position retValStr + 2 (0+2=2),
+                                                                                           //4 characters
+                                                                                           //having the length elcount(strToBeDisplayed)
+  			retValStr = strstr(subStr, "."); //retValStr will memorize the dot's position (in ex is 1)
+  			substr_cpy(subStr1, subStr, 0, retValStr, elcount(subStr)); //subStr1: 0
+                                                                    //the integer part of the number (in string format)
+  			lDig = atol(subStr1); //converts the subStr1 into a long integer and assings it to lDig
+  			substr_cpy(subStr2, subStr, retValStr + 1, 2, elcount(subStr)); //subStr2: 000
+                                                                        //the fractional part of the number (in string format)
+  			lDecPlaces = atol(subStr2); //converts the subStr2 into a long integer and assings it to lDecPlaces
+        //calculate the floating-point value of the whole number (0.00)
+  			fIval = (float)lDig + (float)lDecPlaces/100; 
+        
+        //update current output value
+  			@powerSupply_2023::current_output = fIval;
+      }
+		}
+	}
+}
+
+on sysvar powerSupply_2023::switch_power //reaction to the event change of system variable switch_power
+{
+   if(@this == 1) //if the switch is activated(on)
+   {  
+      if(@powerSupply_2023::power_supply == 0) //in case of KONSTANTER
+      {   
+        //set the status of the output as ON and send it to the PS to be displayed(activating the led)
+        fStrToByteArray("OUTP ON", sendBuffer_bytes); 
+  			RS232Send(@powerSupply_2023::com_port, sendBuffer_bytes, noOfBytesToBeSent);
+       
+        /*here takes place a device identification query, meaning that the KONSTANTER identifies itself(manufacturer, type designation, serial number, hardware
+                                                                                                        revision and software (firmware) revision)*/
+        fStrToByteArray("*IDN?", sendBuffer_bytes); 
+  			RS232Send(@powerSupply_2023::com_port, sendBuffer_bytes, noOfBytesToBeSent);
+        
+        //send a PS voltage and current status request
+        setTimer(TimerForPS, 500); //wait 500ms and then activate TimerForPS
+      }
+      else if(@powerSupply_2023::power_supply == 1) //in case of AimTTi
+      { 
+        //set the status of the output as ON and send it to the PS to be displayed(activating the led)
+        fStrToByteArray("ON", sendBuffer_bytes); 
+  			RS232Send(@powerSupply_2023::com_port, sendBuffer_bytes, noOfBytesToBeSent);
+       
+        //device identification query
+        fStrToByteArray("*IDN?", sendBuffer_bytes); 
+  			RS232Send(@powerSupply_2023::com_port, sendBuffer_bytes, noOfBytesToBeSent);
+        
+        //send a PS voltage and current status request
+        setTimer(TimerForPS, 500); //wait 500ms and then activate TimerForPS
+      }
+   }
+   else //if the switch is inactivated(off)
+   { 
+      if(@powerSupply_2023::power_supply == 0) //in case of KONSTANTER
+      {
+        //set the status of the output as OFF and send it to the PS to be displayed(so, on the PS)
+        fStrToByteArray("OUTP OFF", sendBuffer_bytes);
+    	  RS232Send(@powerSupply_2023::com_port, sendBuffer_bytes, noOfBytesToBeSent);
+          
+        //send a PS voltage and current status request again
+        setTimer(TimerForPS, 500); 
+      }
+      else if(@powerSupply_2023::power_supply == 1) //in case of AimTTi
+      {
+        //set the status of the output as OFF and send it to the PS to be displayed(again, on the PS)
+        fStrToByteArray("OFF", sendBuffer_bytes);
+        RS232Send(@powerSupply_2023::com_port, sendBuffer_bytes, noOfBytesToBeSent); 
+        
+        //send a PS voltage and current status request again
+        setTimer(TimerForPS, 1200); 
+      }
+      if(@input::switch_input == 1) //if the switch_input is turned on
+      {
+        setTimer(TimerStopInput, 0); //turn off the switch_input
+      }
+   }
+}
+
+on sysvar powerSupply_2023::set_voltage //reaction to the event change of system variable set_voltage
+{
+  if(@this == 1) //if the set button is pressed
+  {
+    if(@powerSupply_2023::switch_power == 0) //if the switch is off(inactive)
+  	{
+      write("Output OFF! The value cannot be set.");
+      //send a PS voltage and current status request 
+      setTimer(TimerForPS, 500); 
+  	}
+    else if(@powerSupply_2023::switch_power == 1) //if the switch is on(active)
+    {
+      char	cmdString[15]; //create a string in which we store some data (USET %.2f | V %.2f)
+    	
+      if(@powerSupply_2023::power_supply == 0) //in case of KONSTANTER
+      {
+        //create a display string from the voltage input with the format "USET %.2f"
+      	snprintf(cmdString, elcount(cmdString), "USET %.2f", @powerSupply_2023::voltage_input);
+        if(@powerSupply_2023::voltage_input > 32) //if the set value is above treshold
+        {
+          write("The provided voltage value is above the threshold and cannot be set. The previous set voltage value, if provided, remains valid.");
+        }
+        else //send it
+        {
+      	fStrToByteArray(cmdString, sendBuffer_bytes);
+      	RS232Send(@powerSupply_2023::com_port, sendBuffer_bytes, noOfBytesToBeSent);
+        }
+      }
+      else if(@powerSupply_2023::power_supply == 1) //in case of AimTTi
+      {
+        //create a display string from the voltage input with the format "V %.2f"
+      	snprintf(cmdString, elcount(cmdString), "V %.2f", @powerSupply_2023::voltage_input);
+        if(@powerSupply_2023::voltage_input > 35) //if the set value is above treshold
+        {
+          write("The provided voltage value is above the threshold and cannot be set. The previous set voltage value, if provided, remains valid.");
+        }
+        else //send it
+        {
+          fStrToByteArray(cmdString, sendBuffer_bytes);
+      	  RS232Send(@powerSupply_2023::com_port, sendBuffer_bytes, noOfBytesToBeSent);
+        }
+      }
+      //send a PS voltage and current status request 
+      setTimer(TimerForPS, 500); 
+    }
+  }
+  @this=0; //the press button is released
+}
+
+on sysvar powerSupply_2023::set_current //reaction to the event change of system variable set_current
+{
+  if(@this == 1) //if the set button is pressed
+  {
+    if(@powerSupply_2023::switch_power == 0) //if the switch is off(inactive)
+  	{
+      write("Output OFF! The value cannot be set.");
+      //send a PS voltage and current status request 
+      setTimer(TimerForPS, 500); 
+  	}
+    else if(@powerSupply_2023::switch_power == 1) //if the switch is on(active)
+    {
+      char	cmdString[15]; //create a string in which we store some data (ISET %.2f | I %.2f)
+    	
+      if(@powerSupply_2023::power_supply == 0) //in case of KONSTANTER
+      {
+        //create a display string from the current input with the format "ISET %.2f"
+      	snprintf(cmdString, elcount(cmdString), "ISET %.2f", @powerSupply_2023::current_input);
+        if(@powerSupply_2023::current_input > 18) //if the set value is above treshold
+        {
+          write("The provided limit current value is above the threshold and cannot be set. The previous set voltage value, if provided, remains valid.");
+        }
+        else //send it
+        {
+        	fStrToByteArray(cmdString, sendBuffer_bytes);
+        	RS232Send(@powerSupply_2023::com_port, sendBuffer_bytes, noOfBytesToBeSent);
+        }
+      }
+      else if(@powerSupply_2023::power_supply == 1) //in case of AimTTi
+      {
+        //create a display string from the current input with the format "I %.2f"
+      	snprintf(cmdString, elcount(cmdString), "I %.2f", @powerSupply_2023::current_input);
+        if(@powerSupply_2023::current_input > 5) //if the set value is above treshold
+        {
+          write("The provided limit current value is above the threshold and cannot be set. The previous set voltage value, if provided, remains valid.");
+        }
+        else //send it
+        {
+        	fStrToByteArray(cmdString, sendBuffer_bytes);
+        	RS232Send(@powerSupply_2023::com_port, sendBuffer_bytes, noOfBytesToBeSent);
+        }
+      }
+      //send a PS voltage and current status request 
+      setTimer(TimerForPS, 500); 
+    }
+  }
+  @this=0; //the press button is released
+}
+
+on sysvar powerSupply_2023::check //reaction to the event change of system variable check
+{
+  if(@this == 1) //if the set button is pressed
+	{
+    write("Check:");
+    if(@powerSupply_2023::power_supply == 0) //in case of KONSTANTER
+    {
+      fGetPS_UoutIoutStatus(); //send a PS voltage and current status request
+    }
+    else if(@powerSupply_2023::power_supply == 1) //in case of AimTTi
+    {
+      fGetPS_UoutStatus(); //send a PS voltage status request
+      setTimer(Timer2ForPS, 500); //wait 500ms and read the response (the PS current status response)
+    }
+	}
+  @this=0; //the press button is released
+}
+
+fGetPS_UoutIoutStatus() //function through which we obtain the status of the voltage and current output (this function is used in case of the KONSTANTER)
+{
+	flgQueryUoutIoutStatus = 1; //set the flag to 1
+  //querying the voltage and current output status and send them to be displayed
+  fStrToByteArray("UOUT?;IOUT?", sendBuffer_bytes); 
+  RS232Send(@powerSupply_2023::com_port, sendBuffer_bytes, noOfBytesToBeSent);
+}
+
+fGetPS_UoutStatus() //function through which we obtain the status of the voltage output (this function is used in case of the AimTTi)
+{
+	flgQueryUoutStatus = 1; //set the flag to 1
+  //querying the output voltage status and send it to be displayed
+	fStrToByteArray("VO?", sendBuffer_bytes); 
+	RS232Send(@powerSupply_2023::com_port, sendBuffer_bytes, noOfBytesToBeSent);
+}
+
+fGetPS_IoutStatus() //function through which we obtain the status of the current output (this function is used also in case of the AimTTi)
+{
+	flgQueryIoutStatus = 1;
+  //querying the output current status and send it to be displayed
+	fStrToByteArray("IO?", sendBuffer_bytes); 
+	RS232Send(@powerSupply_2023::com_port, sendBuffer_bytes, noOfBytesToBeSent);
+}
+
+on timer TimerForPS /*main' timer in which we request the voltage and current output(both at the same time by calling fGetPS_UoutIoutStatus(); 
+                      in case of KONSTANTER and in case of AimTTi, we request here the voltage output by calling fGetPS_UoutStatus(); 
+                      and then we 'call' another timer(Timer2ForPS) in which we request the current output by calling fGetPS_IoutStatus();*/
+{
+  write("Uout and Iout status:");
+  if(@powerSupply_2023::power_supply == 0) //in case of KONSTANTER
+  {
+    fGetPS_UoutIoutStatus(); //send a PS voltage and current status request
+  }
+  else if(@powerSupply_2023::power_supply == 1) //in case of AimTTi
+  {
+    fGetPS_UoutStatus(); //send a PS voltage status request
+    setTimer(Timer2ForPS, 500); //wait 500ms and read the response (the PS current status response)
+  }
+  cancelTimer(TimerForPS); //stop the timer
+}
+
+on timer Timer2ForPS //used for requesting the current from AimTTi
+{
+  fGetPS_IoutStatus(); //send a PS current status request
+  cancelTimer(Timer2ForPS); //stop the timer
+}
+
+
+
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+//NEW FEATURES
+
+
+
+//1st. LOGGING
+
+on sysvar logging::switch_logging //event handler for the switch_logging system variable
+{
+  //logging without time limit
+  if(@logging::time_limit == 0) //if the logging is executed without a time limit 
+  {
+    if(@this == 1) //if the switch_logging is activated(on)
+    {
+      if(flgLoggingInProgress == 0) //check if logging is not already in progress
+      {
+        write("Logging into the file starts right now.");
+        flgLoggingInProgress = 1; //start logging
+        measurements = 0; //reinitialize the measurements counter
+        timerReferenceA = TimeNow()/100000.0; //first read of time in seconds
+        selectLocation(); //call the function for selecting the location of the logging file
+        setTimer(TimerLogging, 0); //start the timer immediately(wait 0 time) to initiate logging asynchronously
+      }
+      else
+      {
+        write("Logging is already in the progress.");
+      }
+    }
+    else if(@this == 0) //if the switch_logging is inactivated(off)
+    {
+      if(flgLoggingInProgress == 1) //check if logging is still in progress
+      {
+        flgLoggingInProgress = 0; //stop logging
+        fileClose(fileLogging); //close the file
+      }
+      else
+      {
+        write("Logging is not in the progress."); 
+      }
+    }
+  }
+  //logging with time limit
+  else if(@logging::time_limit == 1) //if the logging is executed with a time limit 
+  {
+    if(@this == 1) //if the switch_logging is activated(on)
+    {
+      if(flgLoggingInProgress == 0) //check if logging is not already in progress
+      {
+        write("Logging into the file starts within the time limit:");
+        flgLoggingInProgress = 1; //start logging
+        measurements = 0; //reinitialize the measurements counter
+        timerReferenceA = TimeNow()/100000.0; //first read of time in seconds
+        selectLocation(); //call the function for selecting the location of the logging file
+        setTimer(TimerLoggingWithLimit, 0); //start the timer immediately(wait 0 time) to initiate logging asynchronously
+      }
+    }
+    else if(@this == 0) //if the switch_logging is inactivated(off)
+    {
+      if(flgLoggingInProgress == 1) //check if logging is still in progress
+      {
+        flgLoggingInProgress = 0; //stop logging
+        fileClose(fileLogging); //close the file
+        setTimer(TimerLoggingWithLimit, 0); //start the timer immediately(wait 0 time) to initiate logging asynchronously
+      }
+      else
+      {
+        write("Logging is not in the progress."); 
+      }
+    }
+  }
+}
+
+selectLocation() //function that takes the path (held by loggingLocation variable) for the logging file and creates or opens an file (held by fileLogging variable)
+{
+  sysGetVariableString(sysvar::logging::location, loggingLocation, elCount(loggingLocation)); //returns the value of the variable(sysvar::logging::location), which is the String (char[]) type
+	setFilePath(loggingLocation, 1); //set the path with the feature: write(marked by digit 1) 
+  if(@logging::file_format == 0) //file format: excel
+  {
+    fileLogging = openFileWrite("logging.xls", 0); //create the file if does not already exist and open it for writing
+    filePutString("Measurement", elcount("Measurement"), fileLogging);
+    filePutString("\t", elcount("\t"), fileLogging);
+    filePutString("Time (s)", elcount("Time (s)"), fileLogging);
+    filePutString("\t", elcount("\t"), fileLogging);
+    filePutString("Voltage (V)", elcount("Voltage (V)"), fileLogging);
+    filePutString("\t", elcount("\t"), fileLogging);
+    filePutString("Current (A)", elcount("Current (A)"), fileLogging);
+    filePutString("\n\n", elcount("\n\n"), fileLogging);
+  }
+  else if(@logging::file_format == 1) //file format: text
+  {
+    fileLogging = openFileWrite("logging.txt", 0); //create the file if does not already exist and open it for writing
+    filePutString("Measurement  |    Time (s)      |  Voltage (V)  |  Current (A) \n", elcount("Measurement  |    Time (s)     |  Voltage (V)  |  Current (A) \n"), fileLogging);
+    filePutString("\n", elcount("\n"), fileLogging);
+  }
+  if(fileLogging < 0) 
+  {
+    write("Error: Unable to open file for writing.");
+    return;
+  }
+}
+
+on timer TimerLogging
+{
+  if(@logging::switch_logging == 1) //check if logging switch is still on
+  {
+    //perform logging operation here
+    flgLoggingInProgress = 1; //start logging
+    //start logging operation
+    if(@powerSupply_2023::power_supply == 0) //in case of KONSTANTER
+    {
+      fGetPS_UoutIoutStatus(); //send a PS voltage and current status request
+      setTimer(TimerLogging, @logging::time_sampling); //wait that no. of ms(transformed in s) and read the response again
+    }
+    else if(@powerSupply_2023::power_supply == 1) //in case of AimTTi
+    {
+      fGetPS_UoutStatus(); //send a PS voltage status request
+      setTimer(Timer2ForPS_logging, 500); //wait 500ms and read the response (the PS current status response)
+    }
+  }
+  else if(@logging::switch_logging == 0) //if switch is turned off
+  {
+    flgLoggingInProgress = 0; //stop logging
+    write("Logging stopped.");
+    fileClose(fileLogging); //close the file
+    cancelTimer(TimerLogging); //stop the timer
+  }
+}
+
+on timer Timer2ForPS_logging
+{
+  fGetPS_IoutStatus(); //send a PS current status request
+  setTimer(TimerLogging, @logging::time_sampling); //wait that no. of ms(transformed in s) and read the response again
+}
+
+on timer TimerLoggingWithLimit
+{
+  if(@logging::switch_logging == 1) //check if logging switch is still on
+  {
+    flgLoggingInProgress = 1; //start logging
+    //perform logging operation asynchronously with time limit
+    setTimer(TimerLimit, @logging::limit); //start the timer after x seconds(the limit), such that, after the limit is reached, it enters the function, stops logging and cancel the timer inside it
+    setTimer(TimerCyclicity, 0); //start the timer immediately(wait 0 time) to initiate reading values asynchronously
+  }
+  else if(@logging::switch_logging == 0) //if switch is turned off
+  {
+    flgLoggingInProgress = 0; //stop logging
+    write("Logging forced to stop earlier.");
+    fileClose(fileLogging); //close the file
+    cancelTimer(TimerLoggingWithLimit); //stop the timer
+    cancelTimer(TimerLimit); //stop the timer
+  }
+}
+
+on timer Timer2ForPS_loggingWithLimit
+{
+  fGetPS_IoutStatus(); //send a PS current status request
+  setTimer(TimerCyclicity, @logging::time_sampling); //wait for the specified time and read the response
+}
+
+on timer TimerLimit
+{
+  flgLoggingInProgress = 0; //stop logging
+  write("Time limit reached. Logging stopped.");
+  fileClose(fileLogging); //close the file
+  cancelTimer(TimerLimit); //stop the timer
+  @logging::switch_logging = 0; //turn off the switch_logging when the limit has been reached
+}
+
+on timer TimerCyclicity
+{
+  if(flgLoggingInProgress == 1) //check if logging is still in progress
+  {
+    if(@powerSupply_2023::power_supply == 0) //in case of KONSTANTER
+   {
+     fGetPS_UoutIoutStatus(); //send a PS voltage and current status request
+     setTimer(TimerCyclicity, @logging::time_sampling); //wait for the specified time and read the response
+   }
+   else if(@powerSupply_2023::power_supply == 1) //in case of AimTTi
+   {
+     fGetPS_UoutStatus(); //send a PS voltage status request
+     setTimer(Timer2ForPS_loggingWithLimit, 500); //wait for 500ms and read the response (the PS current status response)
+   }
+  }
+  else
+  {
+    
+  }
+}
+
+//2nd. INPUT FILE
+
+on sysvar input::switch_input //event handler for the switch_input system variable
+{
+  if(@this == 1) //if the switch_input is activated(on)
+  {
+    if(@powerSupply_2023::switch_power == 1) //if the switch is activated(on)
+    {
+      if(@input::action == 0) //if the action performed is WAIT
+      {
+        write("The WAIT action is executed.");
+        setTimer(TimerStartAction, 0); //start the timer immediately(wait 0 time) to initiate what wait action should do, asynchronously
+      }
+      else if(@input::action == 1) //if the action performed is INCREMENT/DECREMENT
+      {
+        write("The INCREMENT action is executed.");
+        setTimer(TimerStartAction, 0); //start the timer immediately(wait 0 time) to initiate what increment action should do, asynchronously
+      }
+      else if(@input::action == 2) //if the action performed is SPIKE
+      {
+        write("The SPIKE action is executed.");
+        setTimer(TimerStartAction, 0); //start the timer immediately(wait 0 time) to initiate what spike action should do, asynchronously
+      }
+    }
+    else if(@powerSupply_2023::switch_power == 0) //if the switch is inactivated(off)
+    {
+      write("Output OFF! Turn it on in order to give an input.");
+      setTimer(TimerStopInput, 1); //turn off the switch_input also
+    }
+  }
+  if(@this == 0) //if the switch_input is inactivated(on)
+  {
+    write("Input switch OFF!");
+    cancelTimer(TimerTargetValue); //stop the timer
+  }
+}
+
+on timer TimerStopInput
+{
+  @input::switch_input = 0; //set switch_input to 0, meaning tu turn it off
+}
+
+on timer TimerStartAction //timer that does what should wait/increment&decrement/spike function do
+{
+  char	initialVoltageString[15]; //create a string in which we store some data (USET %.2f | V %.2f)
+    	
+  if(@powerSupply_2023::power_supply == 0) //in case of KONSTANTER
+  {
+    //create a display string from the voltage input with the format "USET %.2f"
+  	snprintf(initialVoltageString, elcount(initialVoltageString), "USET %.2f", @input::initial_value_V);
+    if(@input::initial_value_V > 32) //if the set value is above treshold
+    {
+      write("The provided initial voltage value is above the threshold and cannot be set. The previous set voltage value, if provided, remains valid.");
+    }
+    else //send it
+    {
+  	fStrToByteArray(initialVoltageString, sendBuffer_bytes);
+  	RS232Send(@powerSupply_2023::com_port, sendBuffer_bytes, noOfBytesToBeSent);
+    }
+  }
+  else if(@powerSupply_2023::power_supply == 1) //in case of AimTTi
+  {
+    //create a display string from the voltage input with the format "V %.2f"
+  	snprintf(initialVoltageString, elcount(initialVoltageString), "V %.2f", @input::initial_value_V);
+    if(@input::initial_value_V > 35 || @input::target_value_V > 18) //if the set value is above treshold
+    {
+      write("The provided initial voltage value is above the threshold and cannot be set. The previous set voltage value, if provided, remains valid.");
+    }
+    else //send it
+    {
+      fStrToByteArray(initialVoltageString, sendBuffer_bytes);
+  	  RS232Send(@powerSupply_2023::com_port, sendBuffer_bytes, noOfBytesToBeSent);
+    }
+  }
+  //send a PS voltage and current status request 
+  setTimer(TimerForPS, 500);
+  if(@input::action == 0) //if the action performed is WAIT
+  {
+    write("Wait %.2f seconds before setting the target: %.2f V.", @input::time_input, @input::target_value_V);
+    setTimer(TimerTargetValue, @input::time_input); //wait for the specified time and read the response
+  }
+  else if(@input::action == 1) //if the action performed is INCREMENT/DECREMENT
+  {
+    if(@input::initial_value_V < @input::target_value_V) { //INCREMENT the initial value
+      write("Increment %.2f V with %.2f units every %.2f seconds until %.2f V is reached.", @input::initial_value_V, @input::amplitude_unit ,@input::time_interval, @input::target_value_V);
+      @input::new_value_V = @input::initial_value_V + @input::amplitude_unit; //store in new_value_V system variable the next voltage value, calculated as: initial voltage value + amplitude unit value
+      flag_increment = 1;
+    }
+    else if(@input::initial_value_V > @input::target_value_V) { //DECREMENT the target value
+      write("Decrement %.2f V with %.2f units every %.2f seconds until %.2f V is reached.", @input::initial_value_V, @input::amplitude_unit ,@input::time_interval, @input::target_value_V);
+      @input::new_value_V = @input::initial_value_V - @input::amplitude_unit; //store in new_value_V system variable the next voltage value, calculated as: initial voltage value - amplitude unit value
+      flag_increment = 0; 
+    }
+    else { //initial value = target value
+      write("The initial and target values are the same, so there is nothing to do.");
+    }
+    setTimer(TimerIncrementValue, @input::time_interval); //wait for the specified time and start sending the next incremented voltage value <= target voltage value
+  }
+  else if(@input::action == 2) //if the action performed is SPIKE
+  {
+    write("Set and keep %.2f V for %.2f seconds and then set again %.2f V.", @input::target_value_V, @input::time_constant, @input::initial_value_V);
+    setTimer(TimerTargetValue, 1); //wait 1s and read the response
+  }
+}
+
+on timer TimerTargetValue //timer for reading and sending the next input value
+{
+  char	targetVoltageString[15]; //create a string in which we store some data (USET %.2f | V %.2f)
+  
+  if(@powerSupply_2023::power_supply == 0) //in case of KONSTANTER
+  {
+    //create a display string from the voltage input with the format "USET %.2f"
+  	snprintf(targetVoltageString, elcount(targetVoltageString), "USET %.2f", @input::target_value_V);
+    if(@input::target_value_V > 32) //if the set value is above treshold
+    {
+      write("The provided target voltage value is above the threshold and cannot be set. The previous set voltage value, if provided, remains valid.");
+    }
+    else //send it
+    {
+  	fStrToByteArray(targetVoltageString, sendBuffer_bytes);
+  	RS232Send(@powerSupply_2023::com_port, sendBuffer_bytes, noOfBytesToBeSent);
+    }
+  }
+  else if(@powerSupply_2023::power_supply == 1) //in case of AimTTi
+  {
+    //create a display string from the voltage input with the format "V %.2f"
+  	snprintf(targetVoltageString, elcount(targetVoltageString), "V %.2f", @input::target_value_V);
+    if(@input::target_value_V > 35) //if the set value is above treshold
+    {
+      write("The provided target voltage value is above the threshold and cannot be set. The previous set voltage value, if provided, remains valid.");
+    }
+    else //send it
+    {
+      fStrToByteArray(targetVoltageString, sendBuffer_bytes);
+  	  RS232Send(@powerSupply_2023::com_port, sendBuffer_bytes, noOfBytesToBeSent);
+    }
+  }
+  //send a PS voltage and current status request 
+  setTimer(TimerForPS, 500);
+  if(@input::action == 0) //if the action performed is WAIT
+  {
+    setTimer(TimerStopInput, 2); //stop the switch_input after setting the target value (aprox. 2 seconds)
+  }
+  else if(@input::action == 2) //if the action performed is SPIKE
+  {
+    setTimer(TimerBackToInitial, @input::time_constant); //start the timer after x seconds(time_constant), such that, after time_constant is passed, the initial voltage value is set again
+  }
+}
+
+on timer TimerBackToInitial //timer for sending again the initial voltage value
+{
+  char	initialVoltageString[15]; //create a string in which we store some data (USET %.2f | V %.2f)
+    	
+  if(@powerSupply_2023::power_supply == 0) //in case of KONSTANTER
+  {
+    //create a display string from the voltage input with the format "USET %.2f"
+  	snprintf(initialVoltageString, elcount(initialVoltageString), "USET %.2f", @input::initial_value_V);
+    if(@input::initial_value_V > 32) //if the set value is above treshold
+    {
+      write("The provided initial voltage value is above the threshold and cannot be set. The previous set voltage value, if provided, remains valid.");
+    }
+    else //send it
+    {
+  	fStrToByteArray(initialVoltageString, sendBuffer_bytes);
+  	RS232Send(@powerSupply_2023::com_port, sendBuffer_bytes, noOfBytesToBeSent);
+    }
+  }
+  else if(@powerSupply_2023::power_supply == 1) //in case of AimTTi
+  {
+    //create a display string from the voltage input with the format "V %.2f"
+  	snprintf(initialVoltageString, elcount(initialVoltageString), "V %.2f", @input::initial_value_V);
+    if(@input::initial_value_V > 35) //if the set value is above treshold
+    {
+      write("The provided initial voltage value is above the threshold and cannot be set. The previous set voltage value, if provided, remains valid.");
+    }
+    else //send it
+    {
+      fStrToByteArray(initialVoltageString, sendBuffer_bytes);
+  	  RS232Send(@powerSupply_2023::com_port, sendBuffer_bytes, noOfBytesToBeSent);
+    }
+  }
+  //send a PS voltage and current status request 
+  setTimer(TimerForPS, 500);
+  setTimer(TimerStopInput, 2); //stop the switch_input after setting the target value (aprox. 2 seconds)
+}
+
+on timer TimerIncrementValue //timer for incrementing the initial voltage value with a specified unit every a certain time until the target voltage value is reached
+{
+  char	nextVoltageString[15]; //create a string in which we store some data (USET %.2f | V %.2f)
+  
+  if(@powerSupply_2023::power_supply == 0) //in case of KONSTANTER
+  {
+    //create a display string from the voltage input with the format "USET %.2f"
+  	snprintf(nextVoltageString, elcount(nextVoltageString), "USET %.2f", @input::new_value_V);
+    if(@input::target_value_V > 32) //if the set value is above treshold
+    {
+      write("The provided target voltage value is above the threshold and cannot be set. The previous set voltage value, if provided, remains valid.");
+    }
+    else 
+    {
+      if(flag_increment == 1) //if the action performed is INCREMENT
+      {
+        if(@input::new_value_V > @input::target_value_V) //if the incremented value is grater than the target value
+        {
+          setTimer(TimerWaitBeforeDisplay, 1); //write that the new value cannnot be set
+        }
+        else //send it
+        {
+      	fStrToByteArray(nextVoltageString, sendBuffer_bytes);
+      	RS232Send(@powerSupply_2023::com_port, sendBuffer_bytes, noOfBytesToBeSent);
+        //send a PS voltage and current status request 
+        setTimer(TimerForPS, 500);
+        }
+      }
+      else if(flag_increment == 0) //if the action performed is DECREMENT
+      {
+        if(@input::new_value_V < @input::target_value_V) //if the decremented value is smaller than the target value
+        {
+          setTimer(TimerWaitBeforeDisplay, 1); //write that the new value cannnot be set
+        }
+        else //send it
+        {
+      	fStrToByteArray(nextVoltageString, sendBuffer_bytes);
+      	RS232Send(@powerSupply_2023::com_port, sendBuffer_bytes, noOfBytesToBeSent);
+        //send a PS voltage and current status request 
+        setTimer(TimerForPS, 500);
+        }
+      }
+    }
+  }
+  else if(@powerSupply_2023::power_supply == 1) //in case of AimTTi
+  {
+    //create a display string from the voltage input with the format "V %.2f"
+  	snprintf(nextVoltageString, elcount(nextVoltageString), "V %.2f", @input::new_value_V);
+    if(@input::target_value_V > 32) //if the set value is above treshold
+    {
+      write("The provided target voltage value is above the threshold and cannot be set. The previous set voltage value, if provided, remains valid.");
+    }
+    else 
+    {
+      if(flag_increment == 1) //if the action performed is INCREMENT
+      {
+        if(@input::new_value_V > @input::target_value_V) //if the incremented value is grater than the target value
+        {
+          setTimer(TimerWaitBeforeDisplay, 1); //write that the new value cannnot be set
+        }
+        else //send it
+        {
+      	fStrToByteArray(nextVoltageString, sendBuffer_bytes);
+      	RS232Send(@powerSupply_2023::com_port, sendBuffer_bytes, noOfBytesToBeSent);
+        //send a PS voltage and current status request 
+        setTimer(TimerForPS, 500);
+        }
+      }
+      else if(flag_increment == 0) //if the action performed is DECREMENT
+      {
+        if(@input::new_value_V < @input::target_value_V) //if the decremented value is smaller than the target value
+        {
+          setTimer(TimerWaitBeforeDisplay, 1); //write that the new value cannnot be set
+        }
+        else //send it
+        {
+      	fStrToByteArray(nextVoltageString, sendBuffer_bytes);
+      	RS232Send(@powerSupply_2023::com_port, sendBuffer_bytes, noOfBytesToBeSent);
+        //send a PS voltage and current status request 
+        setTimer(TimerForPS, 500);
+        }
+      }
+    }
+  }
+  
+ if(flag_increment == 1) //if the action performed is INCREMENT
+ {
+    if(@input::new_value_V >= @input::target_value_V) //if the target value is reached
+    {
+      setTimer(TimerStopInput, 2); //stop the switch_input after setting the last value (aprox. 2 seconds)
+    }
+    else //if the target value is not yet reached
+    {
+      @input::new_value_V = @input::new_value_V + @input::amplitude_unit; //increment again the next voltage value with amplitude unit value
+      setTimer(TimerIncrementValue, @input::time_interval); //start the timer after waiting time_interval seconds to initiate reading the next value again
+    }
+ }
+ else if(flag_increment == 0) //if the action performed is DECREMENT
+ {
+    if(@input::new_value_V <= @input::target_value_V) //if the initial value is reached
+    {
+      setTimer(TimerStopInput, 2); //stop the switch_input after setting the last value (aprox. 2 seconds)
+    }
+    else //if the initial value is not yet reached
+    {
+      @input::new_value_V = @input::new_value_V - @input::amplitude_unit; //increment again the next voltage value with amplitude unit value
+      setTimer(TimerIncrementValue, @input::time_interval); //start the timer after waiting time_interval seconds to initiate reading the next value again
+    }
+ }
+}
+
+on timer TimerWaitBeforeDisplay 
+{
+  if(flag_increment == 1) //if the action performed is INCREMENT
+  {
+    write("The last voltage value after incrementing (%.2f) is grater than the target value (%.2f), so it cannot be set. The previous voltage value is valid.", @input::new_value_V, @input::target_value_V);
+  }
+  else if(flag_increment == 0) //if the action performed is DECREMENT
+  {
+    write("The last voltage value after decrementing (%.2f) is smaller than the target value (%.2f), so it cannot be set. The previous voltage value is valid.", @input::new_value_V, @input::target_value_V);
+  }
+  //send a PS voltage and current status request
+  setTimer(TimerForPS, 0);
+}
