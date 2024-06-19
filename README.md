@@ -1,7 +1,7 @@
 # Bachelor-Project
 title: Development of User Interface to Digital Control Programmable Power Supplies
 
-description:
+description of the project:
 
 This project was thought within the SC HUF ROMANIA SRL company with the main objective of optimizing and
 streamlining fundamental functionalities for the test teams.
@@ -25,6 +25,3 @@ scenarios where the power supply needs to adjust its voltage value at a certain 
 period of time in order to enter a different operational branch.
 
 The project has been successfully configured for two power supplies models: Konstanter and AimTTi. 
-
-The project has been successfully configured for two power supplies
-models: Konstanter and AimTTi.
