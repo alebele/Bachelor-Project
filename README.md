@@ -7,11 +7,11 @@ how to run the project:
 2. insert the Vector license in the PC
 3. open the CANoe tool and import the entire project:
    
-   3.1. **insert the network node "PS_2023"**, from "to_import" folder, in the Simulation Setup Window
+   3.1. **insert the network node "PS_2023"**, from the main branch, in the Simulation Setup Window
    
-   3.2. **import the "system variables"**, from "to_import" folder, in the Environment Window
+   3.2. **import the "system variables"**, from the main branch, in the Environment Window
    
-   3.3. **add the GUIs: "powerSupply_2023", "logging", "input" and "raporting_instructions"**, from "to_import" folder, in the Panel Window
+   3.3. **add the GUIs: "powerSupply_2023", "logging", "input" and "raporting_instructions"**, from the main branch, in the Panel Window
    
 5. connect the programmable power supply(Konstanter or AimTTi) to the PC using an USB to RS232 converter cable
 6. write, in the GUI, the serial port number through which the PC communicates with the power supply 
