@@ -1,0 +1,107 @@
+<?xml version="1.0"?>
+<Panel Type="Vector.CANalyzer.Panels.PanelSerializer, Vector.CANalyzer.Panels.Serializer, Version=16.3.110.0, Culture=neutral, PublicKeyToken=null">
+  <Object Type="Vector.CANalyzer.Panels.Runtime.Panel, Vector.CANalyzer.Panels.Common, Version=16.3.110.0, Culture=neutral, PublicKeyToken=null" Name="Panel" Children="Controls" ControlName="logging">
+    <Object Type="Vector.CANalyzer.Panels.Design.PanelButtonControl, Vector.CANalyzer.Panels.CommonControls, Version=16.3.110.0, Culture=neutral, PublicKeyToken=null" Name="PanelButtonControl1" Children="Controls" ControlName="Panel Control Button 1">
+      <Property Name="Name">PanelButtonControl1</Property>
+      <Property Name="Size">116, 28</Property>
+      <Property Name="Location">385, 14</Property>
+      <Property Name="PanelList">1;1;raporting_instructions.xvp</Property>
+      <Property Name="NodeList">1;0</Property>
+      <Property Name="NetworkList">1;0</Property>
+      <Property Name="ApplicationList">1;0</Property>
+      <Property Name="FlatStyle">Popup</Property>
+      <Property Name="Text">reporting instructions</Property>
+      <Property Name="TabIndex">33</Property>
+    </Object>
+    <Object Type="Vector.CANalyzer.Panels.Design.ComboBoxControl, Vector.CANalyzer.Panels.CommonControls, Version=16.3.110.0, Culture=neutral, PublicKeyToken=null" Name="ComboBoxControl2" Children="Controls" ControlName="file_format">
+      <Property Name="Name">ComboBoxControl2</Property>
+      <Property Name="Size">124, 21</Property>
+      <Property Name="Location">79, 60</Property>
+      <Property Name="DropDownWidth">59</Property>
+      <Property Name="BackColor">Window</Property>
+      <Property Name="ForeColor">WindowText</Property>
+      <Property Name="TextBackColor">LightGray</Property>
+      <Property Name="DisplayLabel">Left</Property>
+      <Property Name="DescriptionText">File Format:</Property>
+      <Property Name="UsedValueTable">PhysicalValue</Property>
+      <Property Name="DescriptionSize">65, 21</Property>
+      <Property Name="SymbolConfiguration">8;16;logging;;;file_format;1;;;-1;;;;;;0</Property>
+      <Property Name="TabIndex">19</Property>
+    </Object>
+    <Object Type="Vector.CANalyzer.Panels.Design.StaticTextControl, Vector.CANalyzer.Panels.CommonControls, Version=16.3.110.0, Culture=neutral, PublicKeyToken=null" Name="StaticTextControl3" Children="Controls" ControlName="Static Text 3">
+      <Property Name="Name">StaticTextControl3</Property>
+      <Property Name="Size">134, 13</Property>
+      <Property Name="Location">13, 17</Property>
+      <Property Name="Text">Set the path for the log file:</Property>
+    </Object>
+    <Object Type="Vector.CANalyzer.Panels.Design.TextBoxControl, Vector.CANalyzer.Panels.CommonControls, Version=16.3.110.0, Culture=neutral, PublicKeyToken=null" Name="TextBoxControl1" Children="Controls" ControlName="limit">
+      <Property Name="Name">TextBoxControl1</Property>
+      <Property Name="Size">128, 20</Property>
+      <Property Name="Location">80, 95</Property>
+      <Property Name="AlarmUpperTextColor">WindowText</Property>
+      <Property Name="ValueDecimalPlaces">0</Property>
+      <Property Name="AlarmLowerBkgColor">Salmon</Property>
+      <Property Name="ValueDisplay">Double</Property>
+      <Property Name="AlarmUpperBkgColor">IndianRed</Property>
+      <Property Name="AlarmLowerTextColor">WindowText</Property>
+      <Property Name="AlarmGeneralSettings">1;0;0;0</Property>
+      <Property Name="DisplayLabel">Left</Property>
+      <Property Name="DescriptionText">Limit (seconds):</Property>
+      <Property Name="DescriptionSize">84, 20</Property>
+      <Property Name="UsedValueTable">PhysicalValue</Property>
+      <Property Name="SymbolConfiguration">8;16;logging;;;limit;2;;;-1;;;;;;0</Property>
+      <Property Name="TabIndex">17</Property>
+    </Object>
+    <Object Type="Vector.CANalyzer.Panels.Design.ComboBoxControl, Vector.CANalyzer.Panels.CommonControls, Version=16.3.110.0, Culture=neutral, PublicKeyToken=null" Name="ComboBoxControl1" Children="Controls" ControlName="time_limit">
+      <Property Name="Name">ComboBoxControl1</Property>
+      <Property Name="Size">128, 21</Property>
+      <Property Name="Location">230, 61</Property>
+      <Property Name="DropDownWidth">72</Property>
+      <Property Name="BackColor">Window</Property>
+      <Property Name="ForeColor">WindowText</Property>
+      <Property Name="TextBackColor">LightGray</Property>
+      <Property Name="DisplayLabel">Left</Property>
+      <Property Name="DescriptionText">Time limit:</Property>
+      <Property Name="UsedValueTable">PhysicalValue</Property>
+      <Property Name="DescriptionSize">56, 21</Property>
+      <Property Name="SymbolConfiguration">8;16;logging;;;time_limit;1;;;-1;;;;;;0</Property>
+      <Property Name="TabIndex">16</Property>
+    </Object>
+    <Object Type="Vector.CANalyzer.Panels.Design.StaticTextControl, Vector.CANalyzer.Panels.CommonControls, Version=16.3.110.0, Culture=neutral, PublicKeyToken=null" Name="StaticTextControl2" Children="Controls" ControlName="Static Text 2">
+      <Property Name="Name">StaticTextControl2</Property>
+      <Property Name="Size">91, 13</Property>
+      <Property Name="Location">230, 98</Property>
+      <Property Name="Text">Time sampling (s):</Property>
+    </Object>
+    <Object Type="Vector.CANalyzer.Panels.Design.NumericUpDownControl, Vector.CANalyzer.Panels.CommonControls, Version=16.3.110.0, Culture=neutral, PublicKeyToken=null" Name="NumericUpDownControl1" Children="Controls" ControlName="time_sampling">
+      <Property Name="Name">NumericUpDownControl1</Property>
+      <Property Name="Size">35, 20</Property>
+      <Property Name="Location">323, 95</Property>
+      <Property Name="SymbolConfiguration">8;16;logging;;;time_sampling;1;;;-1;;;;;;0</Property>
+      <Property Name="TabIndex">12</Property>
+    </Object>
+    <Object Type="Vector.CANalyzer.Panels.Design.PathControl, Vector.CANalyzer.Panels.CommonControls, Version=16.3.110.0, Culture=neutral, PublicKeyToken=null" Name="PathControl1" Children="Controls" ControlName="location">
+      <Property Name="Name">PathControl1</Property>
+      <Property Name="Size">194, 23</Property>
+      <Property Name="Location">164, 14</Property>
+      <Property Name="DlgType">OpenFolder</Property>
+      <Property Name="SymbolConfiguration">8;16;logging;;;location;4;;;-1;;;;;;0</Property>
+      <Property Name="TabIndex">10</Property>
+    </Object>
+    <Object Type="Vector.CANalyzer.Panels.Design.SwitchControl, Vector.CANalyzer.Panels.CommonControls, Version=16.3.110.0, Culture=neutral, PublicKeyToken=null" Name="SwitchControl1" ControlName="switch_logging">
+      <Property Name="Name">SwitchControl1</Property>
+      <Property Name="Size">35, 46</Property>
+      <Property Name="Location">13, 61</Property>
+      <Property Name="StateCnt">2</Property>
+      <Property Name="SwitchValues">1;2;0;1</Property>
+      <Property Name="SwitchValuesRx">1;2;0;1</Property>
+      <Property Name="SwitchValuesVT">1;2;0/Lower/0;1/Lower/1</Property>
+      <Property Name="SwitchValuesVTXml">&lt;Version&gt;2&lt;/Version&gt;&lt;Count&gt;2&lt;/Count&gt;&lt;RxValue&gt;0&lt;/RxValue&gt;&lt;LowerUpper&gt;Lower&lt;/LowerUpper&gt;&lt;TxValue&gt;0&lt;/TxValue&gt;&lt;RxValue&gt;1&lt;/RxValue&gt;&lt;LowerUpper&gt;Lower&lt;/LowerUpper&gt;&lt;TxValue&gt;1&lt;/TxValue&gt;</Property>
+      <Property Name="SymbolConfiguration">8;16;logging;;;switch_logging;1;;;-1;;;;;;0</Property>
+      <Property Name="TabIndex">8</Property>
+    </Object>
+    <Property Name="Name">Panel</Property>
+    <Property Name="Size">517, 150</Property>
+    <Property Name="BackColor">LightGray</Property>
+  </Object>
+</Panel>

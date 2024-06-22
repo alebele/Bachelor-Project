@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<Panel Type="Vector.CANalyzer.Panels.PanelSerializer, Vector.CANalyzer.Panels.Serializer, Version=16.3.110.0, Culture=neutral, PublicKeyToken=null">
+  <Object Type="Vector.CANalyzer.Panels.Runtime.Panel, Vector.CANalyzer.Panels.Common, Version=16.3.110.0, Culture=neutral, PublicKeyToken=null" Name="Panel" Children="Controls" ControlName="raporting_instructions">
+    <Object Type="Vector.CANalyzer.Panels.Design.StaticTextControl, Vector.CANalyzer.Panels.CommonControls, Version=16.3.110.0, Culture=neutral, PublicKeyToken=null" Name="StaticTextControl1" Children="Controls" ControlName="raporting_instructions">
+      <Property Name="Name">StaticTextControl1</Property>
+      <Property Name="Size">554, 250</Property>
+      <Property Name="Location">11, 10</Property>
+      <Property Name="Text">The raporting is a graph that consists of voltage and current values' changes in real time over the execution of logging.
+
+How it works?
+
+1. from CANoe simulation, go to "Analysis" view, which is found on the top of the screen
+2. click on the "Graphics" window 
+3. open the "graphics" panel
+4. on the left side of the panel, under "Name", right-click and select "Add Variables..." to add the desired system variables
+5. expand "System Variables" and expand "powerSupply_2023"
+6. choose "voltage_output" and "current_output"
+7. click  "Apply", then click "OK"
+8. zoom in/out according to your range of values set for voltage and current
+9. start logging using the "logging" panel
+10. return to the "graphics" panel to see values' changes in real time or after the logging is done, click on "pause" (which is found above the "voltage_output" and "current_output") so that the history of values' changes can be viewed and analyzed, by scrolling back
+
+
+</Property>
+    </Object>
+    <Property Name="Name">Panel</Property>
+    <Property Name="Size">580, 270</Property>
+    <Property Name="BackColor">DarkSeaGreen</Property>
+  </Object>
+</Panel>

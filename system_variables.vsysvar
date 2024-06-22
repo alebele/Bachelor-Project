@@ -1,0 +1,78 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<systemvariables version="4">
+  <namespace name="" comment="" interface="">
+    <namespace name="input" comment="" interface="">
+      <variable anlyzLocal="2" readOnly="false" valueSequence="false" unit="" name="action" comment="" bitcount="32" isSigned="true" encoding="65001" type="int" minValue="0" minValuePhys="0" maxValue="4" maxValuePhys="4">
+        <valuetable name="Custom" definesMinMax="false">
+          <valuetableentry value="0" lowerBound="0" upperBound="0" description="wait" displayString="wait" />
+          <valuetableentry value="1" lowerBound="1" upperBound="1" description="increment" displayString="increment" />
+          <valuetableentry value="2" lowerBound="2" upperBound="2" description="spike" displayString="spike" />
+        </valuetable>
+      </variable>
+      <variable anlyzLocal="2" readOnly="false" valueSequence="false" unit="" name="amplitude_unit" comment="" bitcount="64" isSigned="true" encoding="65001" type="float" />
+      <variable anlyzLocal="2" readOnly="false" valueSequence="false" unit="" name="initial_value_V" comment="" bitcount="64" isSigned="true" encoding="65001" type="float" />
+      <variable anlyzLocal="2" readOnly="false" valueSequence="false" unit="" name="new_value_V" comment="" bitcount="64" isSigned="true" encoding="65001" type="float" />
+      <variable anlyzLocal="2" readOnly="false" valueSequence="false" unit="" name="switch_input" comment="" bitcount="32" isSigned="true" encoding="65001" type="int" minValue="0" minValuePhys="0" maxValue="2" maxValuePhys="2">
+        <valuetable name="Custom" definesMinMax="false">
+          <valuetableentry value="0" lowerBound="0" upperBound="0" description="OFF" displayString="OFF" />
+          <valuetableentry value="1" lowerBound="1" upperBound="1" description="ON" displayString="ON" />
+        </valuetable>
+      </variable>
+      <variable anlyzLocal="2" readOnly="false" valueSequence="false" unit="" name="target_value_V" comment="" bitcount="64" isSigned="true" encoding="65001" type="float" />
+      <variable anlyzLocal="2" readOnly="false" valueSequence="false" unit="" name="time_constant" comment="" bitcount="64" isSigned="true" encoding="65001" type="float" />
+      <variable anlyzLocal="2" readOnly="false" valueSequence="false" unit="" name="time_input" comment="" bitcount="64" isSigned="true" encoding="65001" type="float" />
+      <variable anlyzLocal="2" readOnly="false" valueSequence="false" unit="" name="time_interval" comment="" bitcount="64" isSigned="true" encoding="65001" type="float" />
+    </namespace>
+    <namespace name="logging" comment="" interface="">
+      <variable anlyzLocal="2" readOnly="false" valueSequence="false" unit="" name="file_format" comment="" bitcount="32" isSigned="true" encoding="65001" type="int">
+        <valuetable name="Custom" definesMinMax="false">
+          <valuetableentry value="0" lowerBound="0" upperBound="0" description="excel" displayString="excel" />
+          <valuetableentry value="1" lowerBound="1" upperBound="1" description="text" displayString="text" />
+        </valuetable>
+      </variable>
+      <variable anlyzLocal="2" readOnly="false" valueSequence="false" unit="" name="limit" comment="" bitcount="64" isSigned="true" encoding="65001" type="float" />
+      <variable anlyzLocal="2" readOnly="false" valueSequence="false" unit="" name="location" comment="" bitcount="0" isSigned="true" encoding="65001" type="string" startValue="C:\Logging" />
+      <variable anlyzLocal="2" readOnly="false" valueSequence="false" unit="" name="log" comment="" bitcount="32" isSigned="true" encoding="65001" type="int" />
+      <variable anlyzLocal="2" readOnly="false" valueSequence="false" unit="" name="switch_logging" comment="" bitcount="32" isSigned="true" encoding="65001" type="int" minValue="0" minValuePhys="0" maxValue="2" maxValuePhys="2">
+        <valuetable name="Custom" definesMinMax="false">
+          <valuetableentry value="0" lowerBound="0" upperBound="0" description="OFF" displayString="OFF" />
+          <valuetableentry value="1" lowerBound="1" upperBound="1" description="ON" displayString="ON" />
+        </valuetable>
+      </variable>
+      <variable anlyzLocal="2" readOnly="false" valueSequence="false" unit="" name="time_limit" comment="" bitcount="32" isSigned="true" encoding="65001" type="int" minValue="0" minValuePhys="0" maxValue="2" maxValuePhys="2">
+        <valuetable name="Custom" definesMinMax="false">
+          <valuetableentry value="0" lowerBound="0" upperBound="0" description="without" displayString="without" />
+          <valuetableentry value="1" lowerBound="1" upperBound="1" description="with" displayString="with" />
+        </valuetable>
+      </variable>
+      <variable anlyzLocal="2" readOnly="false" valueSequence="false" unit="" name="time_sampling" comment="" bitcount="32" isSigned="true" encoding="65001" type="int" />
+    </namespace>
+    <namespace name="powerSupply_2023" comment="" interface="">
+      <variable anlyzLocal="2" readOnly="false" valueSequence="false" unit="" name="check" comment="" bitcount="32" isSigned="true" encoding="65001" type="int" />
+      <variable anlyzLocal="2" readOnly="false" valueSequence="false" unit="" name="com_port" comment="" bitcount="32" isSigned="true" encoding="65001" type="int" />
+      <variable anlyzLocal="2" readOnly="false" valueSequence="false" unit="" name="comm_protocol" comment="" bitcount="32" isSigned="true" encoding="65001" type="int">
+        <valuetable name="Custom" definesMinMax="false">
+          <valuetableentry value="0" lowerBound="0" upperBound="0" description="RS232" displayString="RS232" />
+        </valuetable>
+      </variable>
+      <variable anlyzLocal="2" readOnly="false" valueSequence="false" unit="" name="current_input" comment="" bitcount="64" isSigned="true" encoding="65001" type="float" />
+      <variable anlyzLocal="2" readOnly="false" valueSequence="false" unit="" name="current_output" comment="" bitcount="64" isSigned="true" encoding="65001" type="float" />
+      <variable anlyzLocal="2" readOnly="false" valueSequence="false" unit="" name="power_supply" comment="" bitcount="32" isSigned="true" encoding="65001" type="int">
+        <valuetable name="Custom" definesMinMax="false">
+          <valuetableentry value="0" lowerBound="0" upperBound="0" description="Konstanter" displayString="Konstanter" />
+          <valuetableentry value="1" lowerBound="1" upperBound="1" description="AimTTi" displayString="AimTTi" />
+        </valuetable>
+      </variable>
+      <variable anlyzLocal="2" readOnly="false" valueSequence="false" unit="" name="set_current" comment="" bitcount="32" isSigned="true" encoding="65001" type="int" />
+      <variable anlyzLocal="2" readOnly="false" valueSequence="false" unit="" name="set_voltage" comment="" bitcount="32" isSigned="true" encoding="65001" type="int" />
+      <variable anlyzLocal="2" readOnly="false" valueSequence="false" unit="" name="switch_power" comment="" bitcount="32" isSigned="true" encoding="65001" type="int" minValue="0" minValuePhys="0" maxValue="2" maxValuePhys="2">
+        <valuetable name="Custom" definesMinMax="false">
+          <valuetableentry value="0" lowerBound="0" upperBound="0" description="OFF" displayString="OFF" />
+          <valuetableentry value="1" lowerBound="1" upperBound="1" description="ON" displayString="ON" />
+        </valuetable>
+      </variable>
+      <variable anlyzLocal="2" readOnly="false" valueSequence="false" unit="" name="voltage_input" comment="" bitcount="64" isSigned="true" encoding="65001" type="float" />
+      <variable anlyzLocal="2" readOnly="false" valueSequence="false" unit="" name="voltage_output" comment="" bitcount="64" isSigned="true" encoding="65001" type="float" />
+    </namespace>
+  </namespace>
+</systemvariables>
