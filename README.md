@@ -19,3 +19,4 @@ how to run the project:
 8. start the CANoe simulation
 9. press the switch, from "powerSupply_2023" GUI, to turn on the output button from the power supply (to allow the voltage and current to flow to the power supply)
 10. start setting values for voltage output and current limit output
+
