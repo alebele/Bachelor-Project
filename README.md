@@ -5,7 +5,7 @@ author: Bele Anamaria-Alexandra
 
 description of the project:
 
-This project was thought within the SC HUF ROMANIA SRL company with the main objective of optimizing and
+This project was thought within the SC HUF ROMANIA SRL company having the objectives of optimizing and
 streamlining fundamental functionalities for the test teams.
 
 The main goal was to enable a digital option of controlling the programmable power supply parameters,
@@ -14,9 +14,9 @@ CANoe tool, thus eliminating the need for manual adjustments of the parameters t
 physical interface of the power supply. 
 
 This digital control provides semi-remote management of the power supply that is connected to the PC or to a remote setup. 
-Thus, the engineers can adjust the voltage and current limit of the power supply from distance, when they need to work from home.
+Thus, the testers can adjust the voltage and current limit of the power supply from distance, when they need to work from home.
 
-This project provides the following features:
+Within the project, the following actions can be performed:
 - logging: the process through which the voltage and current consumption, along with the simulation
 time, are stored in the log file
 - reporting: feature that generates a graph showing the changes of voltage and
