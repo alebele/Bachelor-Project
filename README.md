@@ -21,3 +21,5 @@ The project was developed specifically for HUF company and the steps to run the 
 9. start the CANoe simulation
 10. press the switch, from "powerSupply_2023" GUI, to turn on the output button from the power supply (to allow the voltage and current to flow to the power supply)
 11. start setting values for voltage output and current limit output
+
+Detailed explication of the project importing can be followed at Instructions how to import the PS_2023 module in CANoe.docx.
