@@ -1,7 +1,7 @@
 # Bachelor-Project
 title: Development of User Interface to Digital Control Programmable Power Supplies
 
-how to run the project:
+The project was developed specifically for HUF company and the steps to run the project are:
 
 1. install the CANoe tool from Vector Informatik Gmbh: https://www.vector.com/int/en/support-downloads/download-center
 2. insert the Vector license in the PC to open CANoe
